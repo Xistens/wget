@@ -16,8 +16,6 @@ struct host_info {
     char *path;
 };
 
-static void parse_url(char *url, struct host_info *h);
-
 void fatal(char *message) {
     char error_message[100] = {0};
 
