@@ -4,15 +4,17 @@
 #include <ctype.h>
 #include <unistd.h>
 #include <sys/socket.h>
+#include <sys/types.h>
+#include <netdb.h>
+#include <arpa/inet.h>
 #include <netinet/in.h>
 
 // Global Variables
 const unsigned int MAX_SIZE = 1024;
 const unsigned int MAX_PORT = 65535;
 
+// Remove maybe
 struct host_info {
-    char *host;
-    uint32_t port;
     char *path;
     char *file;
 };
@@ -48,26 +50,27 @@ static int port_position(const char *url) {
  * port - pointer that will hold the port number
  * Returns the cursor on the URL after extraction of the port
  */
-static unsigned int get_port(const char *url, uint32_t *port) {
-    char tmp_port[6] = {0};
+static unsigned int get_port(const char *url, char *port) {
     unsigned int url_i;
 
     // Extract port number from URL
     if (url_i = port_position(url)) {
         for (unsigned int i = 0; url[url_i] != '\0' && url[url_i] != '/'; i++, url_i++) {
             if (i > 4) {
-                tmp_port[i] = '\0';
+                port[i] = '\0';
                 break;
             }
-            if (isdigit(url[url_i])) tmp_port[i] = url[url_i];
-            else fatal("invalid port number");
+            if (isdigit(url[url_i])) 
+                port[i] = url[url_i];
+            else 
+                fatal("invalid port number");
         }
     } else {
-        strcpy(tmp_port, "80\0");
+        strcpy(port, "80\0");
     }
 
     // Is port within valid range?
-    if ((*port = atoi(tmp_port)) > MAX_PORT) {
+    if ((atoi(port)) > MAX_PORT) {
         fatal("Port is greater than max number");
     }
     return url_i;
@@ -115,6 +118,9 @@ void format_url(char *p){
     }
 }
 
+/**
+ * This function will extract the path from the URL
+ */
 static unsigned int get_path(const char *url, unsigned int cursor, char *path) {
     if (url[cursor] == '/') {
         unsigned int i;
@@ -150,24 +156,20 @@ static void get_filename(const char *path, char *filename) {
     filename[i] = '\0';
 }
 
-static unsigned int parse_url(char *src_url, struct host_info *h) {
-    char hostname[MAX_SIZE], path[MAX_SIZE], filename[MAX_SIZE];
+static unsigned int parse_url(char *src_url, struct host_info *h, char *hostname, char *port) {
+    char path[MAX_SIZE], filename[MAX_SIZE];
     unsigned int url_i, port_i;
-    uint32_t port;
 
-    memset(hostname, 0, MAX_SIZE);
     memset(path, 0, MAX_SIZE);
     memset(filename, 0, MAX_SIZE);
     if (strncmp(src_url, "http://", 7) == 0) {
         url_i = get_hostname(src_url + 7, hostname);
-        port_i = get_port(src_url + 7 + url_i, &port);
+        port_i = get_port(src_url + 7 + url_i, port);
         
         if (get_path(src_url, 7 + url_i + port_i, path)) {
-            h->port = port;
-            h->host = hostname;
             h->path = path;
-            printf("Port: %d\n", h->port);
-            printf("Host: %s\n", h->host);
+            printf("Port: %s\n", port);
+            printf("Host: %s\n", hostname);
             printf("Path: %s\n", h->path);
 
             if (h->file == NULL) {
@@ -182,6 +184,43 @@ static unsigned int parse_url(char *src_url, struct host_info *h) {
     }
 }
 
+/**
+ * https://github.com/angrave/SystemProgramming/wiki/Networking,-Part-2:-Using-getaddrinfo
+ */
+static int conn_host(const char *host, const char *port) {
+    struct sockaddr_in target_addr;
+    struct addrinfo hints, *res, *p;
+    uint32_t sockfd, errno;
+
+    memset(&hints, 0, sizeof(struct addrinfo));
+    hints.ai_family = AF_UNSPEC;            // Use IPv4 or IPv6
+    hints.ai_socktype = SOCK_STREAM;        // TCP
+    hints.ai_flags = AI_PASSIVE;            // Fill in IP automatically
+    hints.ai_protocol = 0;
+
+    if ((errno = getaddrinfo(host, port, &hints, &res))) {
+        fprintf(stderr, "in getaddrinfo: %s\n", gai_strerror(errno));
+        exit(1);
+    }
+
+    for (p = res; p != NULL; p = p->ai_next) {
+        if ((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
+            perror("socket error");
+            continue;
+        }
+
+        if (connect(sockfd, p->ai_addr, p->ai_addrlen) != 1)
+            break;
+        else perror("connection error");
+        close(sockfd);
+    }
+    freeaddrinfo(res);
+    if (!p) fatal("cannot connect");
+
+    printf("%d\n", sockfd);
+    return sockfd;
+}
+
 static void usage(void) {
     printf("Usage: wget [-f] <host>\n"
         "Options are:\n"
@@ -192,14 +231,16 @@ static void usage(void) {
 
 
 int main(int argc, char **argv) {
-    char *file = {0};
+    char *file = {0}, port[6] = {0};
     struct host_info target;
+    char hostname[MAX_SIZE];
 
+    memset(hostname, 0, MAX_SIZE);
     if (argc < 2){
         usage();
     }
 
-    int c;
+    unsigned int c;
     target.file = '\0';
     while ((c = getopt(argc, argv, "f:")) != -1) {
         switch (c) {
@@ -213,9 +254,11 @@ int main(int argc, char **argv) {
 
     // Check file and URL
     if (argv[optind]) {
-        if (!parse_url(argv[optind], &target)) {
+        if (!parse_url(argv[optind], &target, hostname, port)) {
             fatal("Invalid URL. Only supports http");
         }
+        uint32_t socket = conn_host(hostname, port);
+        close(socket);
     } else {
         usage();
     }
