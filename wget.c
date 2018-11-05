@@ -14,6 +14,7 @@ struct host_info {
     char *host;
     uint32_t port;
     char *path;
+    char *file;
 };
 
 void fatal(char *message) {
@@ -149,7 +150,7 @@ static void get_filename(const char *path, char *filename) {
     filename[i] = '\0';
 }
 
-static void parse_url(char *src_url, struct host_info *h) {
+static unsigned int parse_url(char *src_url, struct host_info *h) {
     char hostname[MAX_SIZE], path[MAX_SIZE], filename[MAX_SIZE];
     unsigned int url_i, port_i;
     uint32_t port;
@@ -168,11 +169,16 @@ static void parse_url(char *src_url, struct host_info *h) {
             printf("Port: %d\n", h->port);
             printf("Host: %s\n", h->host);
             printf("Path: %s\n", h->path);
-            get_filename(path, filename);
-            printf("Filename: %s\n", filename);
+
+            if (h->file == NULL) {
+                get_filename(path, filename);
+                h->file = filename;
+            }
+            printf("Filename: %s\n", h->file);
+            return 1;
         }
     } else {
-        fatal("not an HTTP URL");
+        return 0;
     }
 }
 
@@ -194,10 +200,11 @@ int main(int argc, char **argv) {
     }
 
     int c;
+    target.file = '\0';
     while ((c = getopt(argc, argv, "f:")) != -1) {
         switch (c) {
             case 'f':
-                file = optarg;
+                target.file = optarg;
                 break;
             default:
                 usage();
@@ -205,8 +212,10 @@ int main(int argc, char **argv) {
     }
 
     // Check file and URL
-    if (file && argv[optind]) {
-        parse_url(argv[optind], &target);
+    if (argv[optind]) {
+        if (!parse_url(argv[optind], &target)) {
+            fatal("Invalid URL. Only supports http");
+        }
     } else {
         usage();
     }
