@@ -1,33 +1,12 @@
 #include "wget.h"
 #include "http.h"
+#include "connect.h"
+#include "utils.h"
 
 // Global Variables
 const unsigned int MAX_SIZE = 1024;
 const unsigned int MAX_PORT = 65535;
 
-/**
- * Error-checked malloc()
- */
-void *c_malloc(unsigned int size){
-  void *ptr = malloc(size);
-  if (ptr == NULL) {
-    fprintf(stderr, "Error: could not allocate heap memory.\n");
-    exit(-1);
-  }
-  return ptr;
-}
-
-
-void fatal(char *message) {
-    char error_message[100] = {0};
-
-    strncpy(error_message, "[!!] Fatal Error ", strlen(error_message));
-    strncat(error_message, message, 83);
-    
-    // Print a system error message
-    perror(error_message);
-    exit(-1);
-}
 
 /**
  * This function will determine if there is any port number in the URL.
@@ -197,43 +176,6 @@ static unsigned int parse_url(char *src_url, struct request *req, char *hostname
     }
 }
 
-/**
- * https://github.com/angrave/SystemProgramming/wiki/Networking,-Part-2:-Using-getaddrinfo
- * https://beej.us/guide/bgnet/html/multi/clientserver.html
- */
-static int conn_host(const char *host, const char *port) {
-    struct sockaddr_in target_addr;
-    struct addrinfo hints, *res, *p;
-    uint32_t sockfd, errno;
-
-    memset(&hints, 0, sizeof(struct addrinfo));
-    hints.ai_family = AF_UNSPEC;            // Use IPv4 or IPv6
-    hints.ai_socktype = SOCK_STREAM;        // TCP
-    hints.ai_flags = AI_PASSIVE;            // Fill in IP automatically
-    hints.ai_protocol = 0;
-
-    if ((errno = getaddrinfo(host, port, &hints, &res))) {
-        fprintf(stderr, "in getaddrinfo: %s\n", gai_strerror(errno));
-        exit(1);
-    }
-
-    for (p = res; p != NULL; p = p->ai_next) {
-        if ((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
-            perror("socket error");
-            continue;
-        }
-
-        if (connect(sockfd, p->ai_addr, p->ai_addrlen) != 1)
-            break;
-        else perror("connection error");
-        close(sockfd);
-    }
-    freeaddrinfo(res);
-    if (!p) fatal("cannot connect");
-
-    return sockfd;
-}
-
 static void usage(void) {
     printf("Usage: wget [-f] <host>\n"
         "Options are:\n"
@@ -243,8 +185,8 @@ static void usage(void) {
 
 int main(int argc, char **argv) {
     char *file = {0}, port[6] = {0};
-    struct request *req;
     char hostname[MAX_SIZE];
+    struct request *req;
 
     memset(hostname, 0, MAX_SIZE);
     if (argc < 2){
@@ -271,11 +213,15 @@ int main(int argc, char **argv) {
             request_free(req);
             fatal("Invalid URL. Only supports http");
         }
-        //uint32_t socket = conn_host(hostname, port);
+        int fd;
+        if((fd = conn_host(hostname, port)) == -1){
+            request_free(req);
+            fatal("Could not connect to host");
+        }
 
-        send_request(req);
+        send_request(req, fd);
         request_free(req);
-        //close(socket);
+        close(fd);
     } else {
         usage();
     }

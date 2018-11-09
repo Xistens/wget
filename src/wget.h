@@ -7,15 +7,10 @@
 #include <assert.h>
 #include <ctype.h>
 #include <unistd.h>
-#include <sys/socket.h>
 #include <sys/types.h>
-#include <netdb.h>
-#include <arpa/inet.h>
 #include <netinet/in.h>
 
 #define DEBUG 1
 
-void *c_malloc(unsigned int size);
-void fatal(char *message);
 
 #endif
