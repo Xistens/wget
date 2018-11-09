@@ -1,5 +1,7 @@
-#include "http.h"
 #include "wget.h"
+#include "http.h"
+#include "utils.h"
+#include "connect.h"
 
 /**
  * Creates a new, empty request.
@@ -97,10 +99,10 @@ static uint32_t append(char *p, char *str) {
  * This function will build the HTTP request header.
  * TODO: make it accept a socket and send the request
  */
-void send_request(struct request *req){
+void send_request(struct request *req, int fd){
     node *current = req->head;
     char *request_string, *p;
-    uint32_t size = 0;
+    uint32_t size = 0, errno;
 
     /*METHOD " " ARG " " "HTTP/1.0" "\r\n" */
     size += strlen(req->method) + 1 + strlen(req->path) + 1 + 8 + 2;
@@ -136,4 +138,8 @@ void send_request(struct request *req){
     #ifdef DEBUG
         printf("\nHTTP Request Header:\n%s\n", request_string);
     #endif
+
+    free(p);
+    free(request_string);
+    //errno = write(fd, request_string, size -1);
 }

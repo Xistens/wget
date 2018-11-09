@@ -22,5 +22,5 @@ void request_set(struct request *req, char *method, char *path);
 node *create_node(request_header *hdr);
 void set_header(struct request *req, request_header *hdr);
 void request_free(struct request *req);
-void send_request(struct request *req);
+void send_request(struct request *req, int fd);
 #endif
