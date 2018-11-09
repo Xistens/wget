@@ -1,23 +1,22 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <ctype.h>
-#include <unistd.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <netdb.h>
-#include <arpa/inet.h>
-#include <netinet/in.h>
+#include "wget.h"
+#include "http.h"
 
 // Global Variables
 const unsigned int MAX_SIZE = 1024;
 const unsigned int MAX_PORT = 65535;
 
-// Remove maybe
-struct host_info {
-    char *path;
-    char *file;
-};
+/**
+ * Error-checked malloc()
+ */
+void *c_malloc(unsigned int size){
+  void *ptr = malloc(size);
+  if (ptr == NULL) {
+    fprintf(stderr, "Error: could not allocate heap memory.\n");
+    exit(-1);
+  }
+  return ptr;
+}
+
 
 void fatal(char *message) {
     char error_message[100] = {0};
@@ -156,9 +155,17 @@ static void get_filename(const char *path, char *filename) {
     filename[i] = '\0';
 }
 
-static unsigned int parse_url(char *src_url, struct host_info *h, char *hostname, char *port) {
+/**
+ * Parse the URL, calls functions to extract port number, hostname and
+ * filename if needed.
+ * 
+ * TODO: Refactor this function
+ */
+static unsigned int parse_url(char *src_url, struct request *req, char *hostname, char *port) {
     char path[MAX_SIZE], filename[MAX_SIZE];
     unsigned int url_i, port_i;
+    request_header *hdr1 = c_malloc(sizeof(request_header));
+    request_header *hdr2 = c_malloc(sizeof(request_header));
 
     memset(path, 0, MAX_SIZE);
     memset(filename, 0, MAX_SIZE);
@@ -167,16 +174,22 @@ static unsigned int parse_url(char *src_url, struct host_info *h, char *hostname
         port_i = get_port(src_url + 7 + url_i, port);
         
         if (get_path(src_url, 7 + url_i + port_i, path)) {
-            h->path = path;
-            printf("Port: %s\n", port);
-            printf("Host: %s\n", hostname);
-            printf("Path: %s\n", h->path);
+            get_filename(path, filename);
+            
+            #ifdef DEBUG
+                printf("Port: %s\n", port);
+                printf("Host: %s\n", hostname);
+                printf("Path: %s\n", path);
+                printf("Filename: %s\n", filename);
+            #endif
 
-            if (h->file == NULL) {
-                get_filename(path, filename);
-                h->file = filename;
-            }
-            printf("Filename: %s\n", h->file);
+            hdr1->name = "User-Agent";
+            hdr1->value = "Mozilla";
+            hdr2->name = "Host";
+            hdr2->value = hostname;
+            request_set(req, "GET", path);
+            set_header(req, hdr1);
+            set_header(req, hdr2);
             return 1;
         }
     } else {
@@ -186,6 +199,7 @@ static unsigned int parse_url(char *src_url, struct host_info *h, char *hostname
 
 /**
  * https://github.com/angrave/SystemProgramming/wiki/Networking,-Part-2:-Using-getaddrinfo
+ * https://beej.us/guide/bgnet/html/multi/clientserver.html
  */
 static int conn_host(const char *host, const char *port) {
     struct sockaddr_in target_addr;
@@ -217,7 +231,6 @@ static int conn_host(const char *host, const char *port) {
     freeaddrinfo(res);
     if (!p) fatal("cannot connect");
 
-    printf("%d\n", sockfd);
     return sockfd;
 }
 
@@ -228,11 +241,9 @@ static void usage(void) {
     exit(-1);
 }
 
-
-
 int main(int argc, char **argv) {
     char *file = {0}, port[6] = {0};
-    struct host_info target;
+    struct request *req;
     char hostname[MAX_SIZE];
 
     memset(hostname, 0, MAX_SIZE);
@@ -241,11 +252,10 @@ int main(int argc, char **argv) {
     }
 
     unsigned int c;
-    target.file = '\0';
     while ((c = getopt(argc, argv, "f:")) != -1) {
         switch (c) {
             case 'f':
-                target.file = optarg;
+                file = optarg;
                 break;
             default:
                 usage();
@@ -254,14 +264,20 @@ int main(int argc, char **argv) {
 
     // Check file and URL
     if (argv[optind]) {
-        if (!parse_url(argv[optind], &target, hostname, port)) {
+        // Create new request
+        req = new_request();
+
+        if (!parse_url(argv[optind], req, hostname, port)) {
+            request_free(req);
             fatal("Invalid URL. Only supports http");
         }
-        uint32_t socket = conn_host(hostname, port);
-        close(socket);
+        //uint32_t socket = conn_host(hostname, port);
+
+        send_request(req);
+        request_free(req);
+        //close(socket);
     } else {
         usage();
     }
-
     return 0;
 }
