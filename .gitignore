@@ -56,7 +56,8 @@ Module.symvers
 Mkfile.old
 dkms.conf
 
-.txt
+*.txt
 .vscode/*
 .gdb_history
+test*
 # End of https://www.gitignore.io/api/c
