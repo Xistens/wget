@@ -20,7 +20,7 @@ void *c_malloc(unsigned int size){
 void fatal(char *message) {
     char error_message[100] = {0};
 
-    strncpy(error_message, "[!!] Fatal Error ", strlen(error_message));
+    strcpy(error_message, "[!!] Fatal Error ");
     strncat(error_message, message, 83);
     
     // Print a system error message
