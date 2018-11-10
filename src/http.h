@@ -19,8 +19,8 @@ struct request {
 
 struct request *new_request(void);
 void request_set(struct request *req, char *method, char *path);
-node *create_node(request_header *hdr);
-void set_header(struct request *req, request_header *hdr);
+node *create_node(char *name, char *value);
+void set_header(struct request *req, char *name, char *value);
 void request_free(struct request *req);
 void send_request(struct request *req, int fd);
 #endif

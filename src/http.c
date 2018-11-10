@@ -1,3 +1,4 @@
+#include <assert.h>
 #include "wget.h"
 #include "http.h"
 #include "utils.h"
@@ -25,9 +26,12 @@ void request_set(struct request *req, char *method, char *path) {
 /**
  * This function accepts a ptr to request_header and creates a new node
  */
-node *create_node(request_header *hdr) {
+node *create_node(char *name, char *value) {
     node *new_node = c_malloc(sizeof(node));
+    request_header *hdr = c_malloc(sizeof(request_header));
 
+    hdr->name = name;
+    hdr->value = value;
     new_node->header = hdr;
     new_node->next = NULL;
 
@@ -37,11 +41,11 @@ node *create_node(request_header *hdr) {
 /**
  * Set the request named NAME to VALUE.
  */
-void set_header(struct request *req, request_header *hdr) {
+void set_header(struct request *req, char *name, char *value) {
     node *current = NULL, *prev;
 
     if (req->head == NULL) {
-        req->head = create_node(hdr);
+        req->head = create_node(name, value);
     }
     else {
         current = prev = req->head;
@@ -50,9 +54,9 @@ void set_header(struct request *req, request_header *hdr) {
         while (current != NULL) {
             if(current->header != NULL) {
                 // Not case-sensitive
-                if (0 == strcasecmp(hdr->name, current->header->name)) {
-                    current->header->name = hdr->name;
-                    current->header->value = hdr->value;
+                if (0 == strcasecmp(name, current->header->name)) {
+                    current->header->name = name;
+                    current->header->value = value;
                     return;
                 }
             }
@@ -65,7 +69,7 @@ void set_header(struct request *req, request_header *hdr) {
             prev = current;
             current = current->next;
         }
-        current->next = create_node(hdr);
+        current->next = create_node(name, value);
     }
 }
 
@@ -138,8 +142,8 @@ void send_request(struct request *req, int fd){
     #ifdef DEBUG
         printf("\nHTTP Request Header:\n%s\n", request_string);
     #endif
-
+    errno = send_string(fd, request_string);
+    
     free(p);
     free(request_string);
-    //errno = write(fd, request_string, size -1);
 }

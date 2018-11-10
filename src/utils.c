@@ -16,11 +16,13 @@ void *c_malloc(unsigned int size){
   return ptr;
 }
 
-
+/**
+ * A function to display an error message and then exit.
+ */
 void fatal(char *message) {
     char error_message[100] = {0};
 
-    strcpy(error_message, "[!!] Fatal Error ");
+    strcpy(error_message, "[!!] Fatal Error: ");
     strncat(error_message, message, 83);
     
     // Print a system error message

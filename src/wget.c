@@ -3,6 +3,7 @@
 #include "connect.h"
 #include "utils.h"
 
+
 // Global Variables
 const unsigned int MAX_SIZE = 1024;
 const unsigned int MAX_PORT = 65535;
@@ -44,7 +45,7 @@ static unsigned int get_port(const char *url, char *port) {
                 fatal("invalid port number");
         }
     } else {
-        strcpy(port, "80\0");
+        sprintf(port, "%d", DEFAULT_HTTP_PORT);
     }
 
     // Is port within valid range?
@@ -143,8 +144,6 @@ static void get_filename(const char *path, char *filename) {
 static unsigned int parse_url(char *src_url, struct request *req, char *hostname, char *port) {
     char path[MAX_SIZE], filename[MAX_SIZE];
     unsigned int url_i, port_i;
-    request_header *hdr1 = c_malloc(sizeof(request_header));
-    request_header *hdr2 = c_malloc(sizeof(request_header));
 
     memset(path, 0, MAX_SIZE);
     memset(filename, 0, MAX_SIZE);
@@ -162,13 +161,11 @@ static unsigned int parse_url(char *src_url, struct request *req, char *hostname
                 printf("Filename: %s\n", filename);
             #endif
 
-            hdr1->name = "User-Agent";
-            hdr1->value = "Mozilla";
-            hdr2->name = "Host";
-            hdr2->value = hostname;
             request_set(req, "GET", path);
-            set_header(req, hdr1);
-            set_header(req, hdr2);
+            set_header(req, "User-Agent", "Mozilla");
+            set_header(req, "Accept", "*/*");
+            set_header(req, "Host", hostname);
+            set_header(req, "Connection", "close");
             return 1;
         }
     } else {
