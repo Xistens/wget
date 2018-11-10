@@ -143,7 +143,5 @@ void send_request(struct request *req, int fd){
         printf("\nHTTP Request Header:\n%s\n", request_string);
     #endif
     errno = send_string(fd, request_string);
-    
-    free(p);
     free(request_string);
 }

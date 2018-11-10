@@ -163,7 +163,6 @@ static unsigned int parse_url(char *src_url, struct request *req, char *hostname
 
             request_set(req, "GET", path);
             set_header(req, "User-Agent", "Mozilla");
-            set_header(req, "Accept", "*/*");
             set_header(req, "Host", hostname);
             set_header(req, "Connection", "close");
             return 1;
