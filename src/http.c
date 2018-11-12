@@ -103,7 +103,7 @@ static uint32_t append(char *p, char *str) {
  * This function will build the HTTP request header.
  * TODO: make it accept a socket and send the request
  */
-void send_request(struct request *req, int fd){
+void send_request(struct request *req, const int fd){
     node *current = req->head;
     char *request_string, *p;
     uint32_t size = 0, errno;
@@ -141,6 +141,7 @@ void send_request(struct request *req, int fd){
 
     #ifdef DEBUG
         printf("\nHTTP Request Header:\n%s\n", request_string);
+        //hexdump(request_string, strlen(request_string));
     #endif
     errno = send_string(fd, request_string);
     free(request_string);

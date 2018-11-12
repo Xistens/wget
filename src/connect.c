@@ -2,12 +2,53 @@
 #include "connect.h"
 #include "utils.h"
 
+#define EOL "\r\n\r\n"
+#define EOL_SIZE 4
+
+/**
+ * This function accepts a socket FD and a ptr to a destination buffer, it will try
+ * to recv the HTTP header (until "\r\n\r\n").
+ * It will receive from the socket until max size or null terminator is seen.
+ * Returns the size of the read line
+ */
+int fd_recv_head(const int sockfd, char *dest_buffer, const unsigned int size) {
+    char *ptr;
+    size_t curr_size = 0;
+    int eol_matched = 0;
+    
+    ptr = dest_buffer;
+    while ((curr_size = recv(sockfd, ptr, 1, 0)) == 1) {
+        
+        // Reached max size?
+        if (curr_size == (size - 1)) {
+            *(ptr+1) = '\0';
+            return strlen(dest_buffer);
+        }
+
+        // End-of-line matched?
+        if (*ptr == EOL[eol_matched]) {
+            eol_matched++;
+            if (eol_matched == EOL_SIZE) {
+                *(ptr+1-EOL_SIZE) = '\0';
+                return strlen(dest_buffer);
+            }
+        } else {
+            eol_matched = 0;
+        }
+
+        // Increment the pointer to the next byte
+        ptr++;
+    }
+
+    return curr_size;
+}
+
 /**
  * This function accepts a socket FD and a ptr to the null terminated string to send
  * The function will make sure all bytes of the string are sent.
  * Returns 1 on success and 0 on failure.
  */
-int send_string(uint32_t sockfd, char *buffer) {
+int send_string(const int sockfd, char *buffer) {
     size_t sent_bytes, bytes_to_send;
     bytes_to_send = strlen(buffer);
 
@@ -29,7 +70,7 @@ int send_string(uint32_t sockfd, char *buffer) {
 int conn_host(const char *host, const char *port) {
     //struct sockaddr_in target_addr;
     struct addrinfo hints, *res, *p;
-    uint32_t sockfd, errno;
+    int sockfd, errno;
 
     memset(&hints, 0, sizeof(struct addrinfo));
     hints.ai_family = AF_UNSPEC;            // Use IPv4 or IPv6

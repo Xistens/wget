@@ -2,11 +2,12 @@
 #include "http.h"
 #include "connect.h"
 #include "utils.h"
+#include <errno.h>
 
 
 // Global Variables
-const unsigned int MAX_SIZE = 1024;
-const unsigned int MAX_PORT = 65535;
+static const unsigned int MAX_SIZE = 1024;
+static const unsigned int MAX_PORT = 65535;
 
 
 /**
@@ -39,9 +40,9 @@ static unsigned int get_port(const char *url, char *port) {
                 port[i] = '\0';
                 break;
             }
-            if (isdigit(url[url_i])) 
+            if (isdigit(url[url_i]))
                 port[i] = url[url_i];
-            else 
+            else
                 fatal("invalid port number");
         }
     } else {
@@ -80,7 +81,7 @@ void format_url(char *p){
     if (! ((end = strchr(p, ';')) || (end = strchr(p, '?')) ||
             (end = strchr(p, '#'))))
         end = p + strlen(p);
-    
+
     while (p < end) {
         if (*p == '/') {
             if (*(p+1) == '/') {
@@ -90,7 +91,7 @@ void format_url(char *p){
                     while ((*orig++ = *dest++));
                     end = orig-1;
                 }
-            } else 
+            } else
                 p++;
         } else
             p++;
@@ -138,7 +139,7 @@ static void get_filename(const char *path, char *filename) {
 /**
  * Parse the URL, calls functions to extract port number, hostname and
  * filename if needed.
- * 
+ *
  * TODO: Refactor this function
  */
 static unsigned int parse_url(char *src_url, struct request *req, char *hostname, char *port) {
@@ -150,10 +151,10 @@ static unsigned int parse_url(char *src_url, struct request *req, char *hostname
     if (strncmp(src_url, "http://", 7) == 0) {
         url_i = get_hostname(src_url + 7, hostname);
         port_i = get_port(src_url + 7 + url_i, port);
-        
+
         if (get_path(src_url, 7 + url_i + port_i, path)) {
             get_filename(path, filename);
-            
+
             #ifdef DEBUG
                 printf("Port: %s\n", port);
                 printf("Host: %s\n", hostname);
@@ -182,6 +183,7 @@ static void usage(void) {
 int main(int argc, char **argv) {
     char *file = {0}, port[6] = {0};
     char hostname[MAX_SIZE];
+    char resp_headers[4096] = {0};
     struct request *req;
 
     memset(hostname, 0, MAX_SIZE);
@@ -216,6 +218,11 @@ int main(int argc, char **argv) {
         }
 
         send_request(req, fd);
+        int len;
+        if ((len = fd_recv_head(fd, resp_headers, 4096)) == -1)
+            fatal("read error");
+
+        printf("\nResponse:\n%s\nSize: %d\n", resp_headers, len);
         request_free(req);
         close(fd);
     } else {

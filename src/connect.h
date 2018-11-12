@@ -6,7 +6,8 @@
 
 
 // Function declarations
-int send_string(uint32_t sockfd, char *buffer);
+int send_string(const int sockfd, char *buffer);
 int conn_host(const char *host, const char *port);
+int fd_recv_head(const int sockfd, char *dest_buffer, const unsigned int size);
 
 #endif
