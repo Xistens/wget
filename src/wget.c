@@ -2,13 +2,26 @@
 #include "http.h"
 #include "connect.h"
 #include "utils.h"
-#include <errno.h>
-
 
 // Global Variables
 static const unsigned int MAX_SIZE = 1024;
 static const unsigned int MAX_PORT = 65535;
+struct request *req;
 
+/**
+ * A function to display an error message and then exit.
+ */
+void fatal(char *message) {
+    char error_message[100] = {0};
+
+    strcpy(error_message, "[!!] Fatal Error: ");
+    strncat(error_message, message, 83);
+    
+    request_free(req);
+    // Print a system error message
+    perror(error_message);
+    exit(-1);
+}
 
 /**
  * This function will determine if there is any port number in the URL.
@@ -142,8 +155,9 @@ static void get_filename(const char *path, char *filename) {
  *
  * TODO: Refactor this function
  */
-static unsigned int parse_url(char *src_url, struct request *req, char *hostname, char *port) {
-    char path[MAX_SIZE], filename[MAX_SIZE];
+static unsigned int parse_url(char *src_url, struct request *req,
+            char *hostname, char *port, char *filename) {
+    char path[MAX_SIZE];
     unsigned int url_i, port_i;
 
     memset(path, 0, MAX_SIZE);
@@ -162,6 +176,7 @@ static unsigned int parse_url(char *src_url, struct request *req, char *hostname
                 printf("Filename: %s\n", filename);
             #endif
 
+            // TODO: abstract this stuff
             request_set(req, "GET", path);
             set_header(req, "User-Agent", "Mozilla");
             set_header(req, "Host", hostname);
@@ -182,10 +197,11 @@ static void usage(void) {
 
 int main(int argc, char **argv) {
     char *file = {0}, port[6] = {0};
-    char hostname[MAX_SIZE];
     char resp_headers[4096] = {0};
-    struct request *req;
+    char hostname[MAX_SIZE];
+    char filename[MAX_SIZE];
 
+    memset(filename, 0, MAX_SIZE);
     memset(hostname, 0, MAX_SIZE);
     if (argc < 2){
         usage();
@@ -207,21 +223,20 @@ int main(int argc, char **argv) {
         // Create new request
         req = new_request();
 
-        if (!parse_url(argv[optind], req, hostname, port)) {
-            request_free(req);
-            fatal("Invalid URL. Only supports http");
-        }
+        if (!parse_url(argv[optind], req, hostname, port, filename))
+            fatal("Invalid URL. Only supports HTTP");
+
         int fd;
-        if((fd = conn_host(hostname, port)) == -1){
-            request_free(req);
+        if((fd = conn_host(hostname, port)) == -1)
             fatal("Could not connect to host");
-        }
 
         send_request(req, fd);
+
         int len;
         if ((len = fd_recv_head(fd, resp_headers, 4096)) == -1)
-            fatal("read error");
+            fatal("Read error");
 
+        len = fd_recv_body(fd, filename);
         printf("\nResponse:\n%s\nSize: %d\n", resp_headers, len);
         request_free(req);
         close(fd);

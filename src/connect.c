@@ -5,6 +5,9 @@
 #define EOL "\r\n\r\n"
 #define EOL_SIZE 4
 
+//Don't let this application use up all available memory
+#define READ_MAX 4096
+
 /**
  * This function accepts a socket FD and a ptr to a destination buffer, it will try
  * to recv the HTTP header (until "\r\n\r\n").
@@ -41,6 +44,28 @@ int fd_recv_head(const int sockfd, char *dest_buffer, const unsigned int size) {
     }
 
     return curr_size;
+}
+
+/**
+ * This function will recv data in chunks then
+ * write this data directly to the file
+ */
+int fd_recv_body(int fd, char *filename) {
+    char buffer[5000];
+    int len;
+    FILE *fp;
+
+    if(!(fp = fopen(filename, "w")))
+        fatal("fopen error");
+
+    while ((len = recv(fd, buffer, READ_MAX, 0)) > 0) {
+        if (fwrite(buffer, 1, len, fp) != len)
+            fatal("fwrite error");
+    }
+
+    if(fclose(fp) == EOF)
+        fatal("fclose error");
+    return len;
 }
 
 /**

@@ -4,6 +4,7 @@
 #include "utils.h"
 
 
+
 /**
  * Error-checked malloc()
  */
@@ -14,20 +15,6 @@ void *c_malloc(unsigned int size){
     exit(-1);
   }
   return ptr;
-}
-
-/**
- * A function to display an error message and then exit.
- */
-void fatal(char *message) {
-    char error_message[100] = {0};
-
-    strcpy(error_message, "[!!] Fatal Error: ");
-    strncat(error_message, message, 83);
-    
-    // Print a system error message
-    perror(error_message);
-    exit(-1);
 }
 
 void hexdump(const unsigned char *buffer, const unsigned int length) {

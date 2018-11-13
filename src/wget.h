@@ -8,8 +8,11 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <netinet/in.h>
+#include <signal.h>
 
 #define DEBUG 1
 #define DEFAULT_HTTP_PORT 80
+
+void fatal(char *message);
 
 #endif
